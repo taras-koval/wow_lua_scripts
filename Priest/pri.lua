@@ -660,10 +660,13 @@ function Silence(mode)
 		else
 			if (UnitBuff("target", "Перерождение")) then return end
 
-			if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0) and not UnitCastingInfo("player")) then
-				CastSpellByName("Контроль над разумом", "target")
+			if (GetSpellCooldown("Контроль над разумом") == 0) then
+				if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0) and not UnitCastingInfo("player")) then
+					CastSpellByName("Контроль над разумом", "target")
+				end
 			end
 		end
+
 	else
 		UseSilence("target")
 	end
