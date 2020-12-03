@@ -1,335 +1,549 @@
+local lastTimeInLos = 0
 
-function tprint(tbl)
+local drResetDelay = 15
 
-	local indent = 0 
+local lastFearTime = 0
+local fearDr = 0
 
-	for k, v in pairs(tbl) do
-		formatting = string.rep("  ", indent) .. k .. ": "
+local lastDisorientTime = 0
+local disorientDr = 0
 
-		if type(v) == "table" then
-			print(formatting)
-			tprint(v, indent + 1)
-		elseif (type(v) == 'boolean') then
-			print(formatting .. tostring(v))		
-		else
-			print(formatting .. v)
+local lastScreamTime = 0
+local lastScatterTime = 0
+local lastRepentanceTime = 0
+
+local castingFlag = false
+local spellUseFlag = false
+
+
+if (not DiminishingReturnsFrame) then
+	DiminishingReturnsFrame = CreateFrame("Frame", "DiminishingReturnsFrame", UIParent)
+end
+
+if (not CheckLosFrame) then
+	CheckLosFrame = CreateFrame("Frame", "CheckLosFrame", UIParent)
+end
+
+if (not AutoDispelPvPFrame) then
+	AutoDispelPvPFrame = CreateFrame("Frame", "AutoDispelPvPFrame", UIParent)
+end
+
+if (not AutoTrinketPvPFrame) then
+	AutoTrinketPvPFrame = CreateFrame("Frame", "AutoTrinketPvPFrame", UIParent)
+end
+
+if (not AutoSWDPvPFrame) then
+	AutoSWDPvPFrame = CreateFrame("Frame", "AutoSWDPvPFrame", UIParent)
+end
+
+if (not InstantSpellsFrame) then
+	InstantSpellsFrame = CreateFrame("Frame", "InstantSpellsFrame", UIParent)
+end
+
+
+function PriestPvP()
+
+	if (not DiminishingReturnsFrame:GetScript("OnUpdate")) then
+
+		-- Diminishing Returns
+		DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
+		DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
+
+		CheckLosFrame:SetScript("OnUpdate", CheckLos_OnUpdate)
+		AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
+		AutoTrinketPvPFrame:SetScript("OnUpdate", AutoTrinketPvP_OnUpdate)
+		AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
+
+		InstantSpellsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		InstantSpellsFrame:SetScript("OnEvent", InstantSpells_OnEvent)
+		-- InstantSpellsFrame:SetScript("OnUpdate", InstantSpells_OnUpdate)
+
+		print("PvP Enabled")
+	else
+		AutoDispelPvPFrame:SetScript("OnUpdate", nil)
+		CheckLosFrame:SetScript("OnUpdate", nil)
+		AutoTrinketPvPFrame:SetScript("OnUpdate", nil)
+		AutoSWDPvPFrame:SetScript("OnUpdate", nil)
+
+		-- Diminishing Returns
+		DiminishingReturnsFrame:SetScript("OnUpdate", nil)
+		DiminishingReturnsFrame:SetScript("OnEvent", nil)
+		DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
+		-- InstantSpellsFrame:SetScript("OnUpdate", nil)
+		InstantSpellsFrame:SetScript("OnEvent", nil)
+		InstantSpellsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
+		print("PvP Disabled")
+	end
+end
+
+function PriestArena()
+
+	if (not DiminishingReturnsFrame:GetScript("OnUpdate")) then
+
+		-- Diminishing Returns
+		DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
+		DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
+
+		AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
+		AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
+
+		print("Arena Enabled")
+	else
+
+		-- Diminishing Returns
+		DiminishingReturnsFrame:SetScript("OnUpdate", nil)
+		DiminishingReturnsFrame:SetScript("OnEvent", nil)
+		DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
+		AutoSWDPvPFrame:SetScript("OnUpdate", nil)
+		AutoDispelPvPFrame:SetScript("OnUpdate", nil)
+
+		print("Arena Disabled")
+	end
+end
+
+
+function CheckLos_OnUpdate()
+	if (IsActiveBattlefieldArena()) then
+		if (UnitExists("arena1")) then
+			if (LineOfSight("arena1")) then
+				lastTimeInLos = GetTime()
+				return
+			end
+		end
+	elseif (UnitExists("target") and UnitIsEnemy("player", "target")) then
+		if (LineOfSight("target")) then
+			lastTimeInLos = GetTime()
+			return
 		end
 	end
 end
 
-function round(num, numDecimalPlaces)
-	local mult = 10^(numDecimalPlaces or 0)
-	return math.floor(num * mult + 0.5) / mult
+-- timestamp, subevent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellID, spellName
+-- print(subevent, sourceName, destName, spellName)
+
+function DiminishingReturns_OnEvent(self, event, _, subevent, _, sourceName, _, _, destName, _, _, spellName)
+	if (subevent == "SPELL_AURA_REMOVED" or subevent == "SPELL_AURA_REFRESH" ) then
+		if (not destName == UnitName("player")) then return end
+
+		if (_IsFearTypeDebuff(spellName)) then
+			fearDr = fearDr + 1
+			lastFearTime = GetTime()
+			return
+		end
+
+		if (_IsDisorientTypeDebuff(spellName)) then
+			disorientDr = disorientDr + 1
+			lastDisorientTime = GetTime()
+			return
+		end
+	end
 end
 
---[[function ggwp()
+function DiminishingReturns_OnUpdate()
+	local now = GetTime()
 
-	local target = LineOfSight("player", "target")
+	if (fearDr > 0) then
+		if (now - lastFearTime > drResetDelay) then 
+			fearDr = 0 
+		end
+	end
 
-	if target
-	then
-		return true
-	else
+	if (disorientDr > 0) then
+		if (now - lastDisorientTime > drResetDelay) then 
+			disorientDr = 0 
+		end
+	end
+end
+
+function InstantSpells_OnEvent(self, event, _, subevent, _, sourceName, _, _, destName, _, _, spellName)
+	if (subevent == "SPELL_CAST_SUCCESS") then
+
+		if (UnitIsDeadOrGhost("player")) then return end
+
+		local function IsHotKeyDown()
+			if (IsModifierKeyDown() or IsMouseButtonDown("RightButton")) then return true end
+			return false
+		end
+
+		-- Shadow fury
+		if (spellName == "Неистовство Тьмы") then
+
+			local function JumpForward()
+				MoveForwardStart()
+				JumpOrAscendStart()
+				MoveForwardStop()
+			end
+
+			local units = {"arena1", "target"}
+
+			for i = 1, #units do
+				if (UnitName(units[i]) == sourceName
+					and UnitIsEnemy("player", units[i])
+					and GetDistance(units[i]) < 42
+					and IsHotKeyDown()
+				) then
+					JumpForward()
+					return
+				end
+			end
+		end
+
+		-- Psychic Scream
+		if (spellName == "Ментальный крик") then
+
+			if (UnitBuff("player", "Защита от страха")) then return end
+
+
+			local function CountPriestDebuffs(unit)
+				local debuffs = {"Всепожирающая чума", "Слово Тьмы: Боль", "Прикосновение вампира"}
+				local count = 0
+
+				for i = 1, #debuffs do
+					if (UnitDebuff(unit, debuffs[i])) then count = count + 1 end
+				end
+				return count
+			end
+
+			local function TimeToUse()
+				local now = GetTime()
+				if (now - lastTimeInLos > 0 and now - lastTimeInLos < 0.6) then return true end
+				if (now - lastScreamTime >= 22.9 and now - lastScreamTime < 23.7) then return true end
+				return false
+			end
+
+			local units = {"arena1", "target"}
+
+			for i = 1, #units do
+				if (UnitName(units[i]) == sourceName and UnitIsEnemy("player", units[i])) then
+
+					if ((TimeToUse() or IsHotKeyDown())
+						and GetDistance(units[i]) < 10
+						and not LineOfSight(units[i])
+					) then
+						if (GetSpellCooldown("Защита от страха") == 0) then
+							CastSpellByName("Защита от страха")
+
+						elseif (GetSpellCooldown("Слово Тьмы: Смерть") == 0 and UnitMana("player") > 3000) then
+
+							if (UnitBuff("player", "Слово силы: Щит")) then
+								if (not UnitDebuff("player", "Ослабленная душа") and CountPriestDebuffs("player") >= 2) then
+									CancelUnitBuff("player", "Слово силы: Щит")
+									CastSpellByName("Слово Тьмы: Смерть", units[i])
+								end
+							else
+								if (CountPriestDebuffs("player") >= 1) then
+									CastSpellByName("Слово Тьмы: Смерть", units[i])
+								end
+							end
+						end
+					end
+
+					lastScreamTime = GetTime()
+					return
+				end
+			end
+		end
+
+		-- Scatter Shot
+		if (spellName == "Дезориентирующий выстрел") then
+			-- print(subevent, sourceName, destName, spellName)
+
+			local function TimeToUse()
+				local now = GetTime()
+				if (now - lastTimeInLos > 0 and now - lastTimeInLos < 0.6) then return true end
+				if (now - lastScatterTime >= 29.9 and now - lastScatterTime < 30.7) then return true end
+				return false
+			end
+
+			local units = {"arena1", "target"}
+
+			for i = 1, #units do
+				if (UnitName(units[i]) == sourceName and UnitName("player") == destName) then
+					if (TimeToUse() or IsHotKeyDown()) then
+						if (GetSpellCooldown("Слово Тьмы: Смерть") == 0 and UnitMana("player") > 3000) then
+							CastSpellByName("Слово Тьмы: Смерть", units[i])
+						end
+					end
+
+					lastScatterTime = GetTime()
+					return
+				end
+			end
+		end
+
+		-- Repentance
+		if (spellName == "Покаяние") then
+			-- print(subevent, sourceName, destName, spellName)
+
+			local function TimeToUse()
+				local now = GetTime()
+				if (now - lastTimeInLos > 0 and now - lastTimeInLos < 0.6) then return true end
+				if (now - lastRepentanceTime >= 59.9 and now - lastRepentanceTime < 60.7) then return true end
+				return false
+			end
+
+			local units = {"arena1", "target"}
+
+			for i = 1, #units do
+				if (UnitName(units[i]) == sourceName and UnitName("player") == destName) then
+					if (TimeToUse() or IsHotKeyDown()) then
+						if (GetSpellCooldown("Слово Тьмы: Смерть") == 0 and UnitMana("player") > 3000) then
+							CastSpellByName("Слово Тьмы: Смерть", units[i])
+						end
+					end
+
+					lastRepentanceTime = GetTime()
+					return
+				end
+			end
+		end
+
+	end
+end
+
+function PsychicScreamPvP()
+
+	local function UnitHasImmun(unit)
+
+		local immunBuffs = {
+			1719, --[["Безрассудство"--]]
+			18499, --[["Ярость берсерка"--]]
+			46924, --[["Вихрь клинков"--]]
+			642, --[["Божественный щит"--]]
+			31224, --[["Плащ Теней"--]]
+			19263, --[["Сдерживание"--]]
+			45438, --[["Ледяная глыба"--]]
+			48707, --[["Антимагический панцирь"--]]
+			50334 --[["Берсерк" --]]
+		}
+
+		local unitBuffs = _UnitAllBuffIDs(unit)
+
+		for i, v in ipairs(unitBuffs) do
+			if (_ExistsInTable(immunBuffs, v)) then
+				return true
+			end
+		end
 		return false
 	end
 
-end
+	local function UnitInRange(unit)
 
+		local playerSpeed = GetUnitSpeed("player")
+		local unitSpeed = GetUnitSpeed(unit)
+		local isUnitFacing = ObjectIsFacing(unit)
+		local distance = GetDistance(unit)
 
-local interval = 60;
-local f = CreateFrame("Frame");
+		if (playerSpeed == 0 and unitSpeed == 0 and distance < 9.5) then return true end
 
-f.FrameSinceLastUpdade = 0;
+		if (playerSpeed == 0 and unitSpeed > 0 and distance < 6.8 and isUnitFacing == true) then return true end
+		if (playerSpeed > 0 and unitSpeed > 0 and distance < 5.3 and isUnitFacing == true) then return true end
+		if (playerSpeed > 0 and unitSpeed == 0 and distance < 6.8 and isUnitFacing == true) then return true end
 
-f:SetScript("OnUpdate", function(self, _)
+		if (playerSpeed == 0 and unitSpeed > 0 and distance < 9.4 and isUnitFacing == false) then return true end
+		if (playerSpeed > 0 and unitSpeed > 0 and distance < 8.7 and isUnitFacing == false) then return true end
+		if (playerSpeed > 0 and unitSpeed == 0 and distance < 6.8 and isUnitFacing == false) then return true end
 
-	self.FrameSinceLastUpdade = self.FrameSinceLastUpdade + 1
-
-	if self.FrameSinceLastUpdade >= interval then
-
-		print(GetTime(), 123, 60)
-
-		ggwp()
-
-		print( ggwp() )
-
-		self.FrameSinceLastUpdade = 0
-	end;
-end)--]]
-
-
------------------------------
-
-
---[[count = 0
-
-function ggwp22()
-
-	if (not LineOfSight("player", "target"))
-	then
-		count = count + 1
-	else
-		count = 0
-	end
-
-	return count
-end
-
-
-local interval = 0;
-
-local f = CreateFrame("Frame");
-f.FrameSinceLastUpdade = 0;
-
-f:SetScript("OnUpdate", function(self, _)
-	self.FrameSinceLastUpdade = self.FrameSinceLastUpdade + 1
-
-	if (self.FrameSinceLastUpdade >= interval) then
-	
-		local function fear()
-			if (not LineOfSight("target") and GetDistance("target") < 11)
-			then
-				CastSpellByName("Ментальный крик")
-			end
-		end
-
-
-		--Пример использования
-		if (UnitExists("target") == 1 and ggwp22() >= 200) 
-		then
-			fear()
-		end
-
-		self.FrameSinceLastUpdade = 0
-	end
-
-end)--]]
-
-
-
-----------------------
-
-
-local time = GetTime()
-
-function test()
-
-	print("speed - ", GetUnitSpeed("player"))
-	print("distance - ", GetDistance("target"))
-
-	if (UnitExists("target") and UnitIsEnemy("player", "target")) then
-
-		if (not LineOfSight("target") and GetDistance("target") < 8)
-		then
-			local diff = GetTime() - time
-
-			if (diff > 0.095 and GetSpellCooldown("Ментальный крик") == 0) then
-				CastSpellByName("Ментальный крик")
-			end
-		else
-			time = GetTime()
-		end
-	else
-		CastSpellByName("Ментальный крик")
-	end
-end
-
-
--- local time = GetTime()
-
-function PsychicScream()
-	-- print(not LineOfSight("target"), " ", GetDistance("target"));
-
-	local buffsList = {
-		"Безрассудство", --[[1719--]]
-		"Ярость берсерка", --[[18499--]]
-		"Вихрь клинков",
-		"Божественный щит", --[[642--]]
-		"Плащ Теней",  --[[31224--]]
-		"Сдерживание", --[[19263--]]
-		"Ледяная глыба", --[[45438--]]
-		"Перерождение", --[[49039--]]
-		"Антимагический панцирь", --[[48707--]]
-		50334 --[[Берсерк--]]
-	}
-
-	local buffs, ids, i = {}, {}, 1;
-
-	local function InRange(unit)
-		if (not UnitExists(unit)) then return false end
-		if (GetUnitSpeed("player") == 0 and GetDistance(unit) < 11) then return true end
-		if (GetUnitSpeed("player") < 4 and GetDistance(unit) < 10) then return true end
-		if (GetUnitSpeed("player") > 4 and GetDistance(unit) < 8.8) then return true end
 		return false
 	end
 
 	local function UseFear()
 		CancelUnitBuff("player", "Слияние с Тьмой")
-
-		if (not UnitCastingInfo("player") == "Сковывание нежити") then
+		if (UnitCastingInfo("player") and not UnitCastingInfo("player") == "Сковывание нежити") then
 			SpellStopCasting()
 		end
+		UseInventoryItem(10)
 
-		UseInventoryItem(10);
 		CastSpellByName("Ментальный крик")
 	end
 
-	--[[SHIFT--]]
-	if (IsShiftKeyDown())
-	then
-		UseFear()
 
-	--[[CTRL--]]
-	elseif (IsControlKeyDown())
+	if (_UnitInControl("player")) then return end
+
+	
+	if (IsShiftKeyDown()) --[[SHIFT--]]
 	then
+		if (GetSpellCooldown("Ментальный крик") > 0) then return end
+
 		local units = {"target", "arena1", "arena2", "arena3"}
 
 		for i = 1, #units do
-			if (UnitExists(units[i]) and UnitIsEnemy("player", units[i]))
-			then
-				if (InRange(units[i]) and not LineOfSight(units[i])) then
+			if (UnitExists(units[i]) and UnitIsEnemy("player", units[i])) then
+
+				if (UnitInRange(units[i]) 
+					and not UnitHasImmun(units[i])
+					and not LineOfSight(units[i])
+				) then
 					UseFear()
 				end
+
 			end
 		end
-
 		return
 
-	--[[WITHOUT MOD--]]
-	else
+	elseif (IsControlKeyDown() or IsAltKeyDown()) --[[CTRL, ALT--]]
+	then
+
+		UseFear()
+
+	else --[[WITHOUT MOD--]]
 		if (UnitExists("target") and UnitIsEnemy("player", "target"))
 		then
-
 			-- Priest
-			if (UnitBuff("target", "Защита от страха"))
-			then
+			if (UnitBuff("target", "Защита от страха")) then
 				CastSpellByName("Рассеивание заклинаний")
 				return
 			end
 
 			-- dk
-			if ((UnitBuff("target", "Перерождение") and UnitDebuff("target", 1) == nil) or
-				(UnitBuff("target", "Перерождение") and UnitDebuff("target", 1) == "Страдание" and UnitDebuff("target", 2) == nil)) 
-			then
-				CastSpellByName("Сковывание нежити", "target")
+			if (UnitBuff("target", "Перерождение")) then
+				if (UnitDebuff("target", 1) == nil or (UnitDebuff("target", 1) == "Страдание" and UnitDebuff("target", 2) == nil)) then
+					CastSpellByName("Сковывание нежити", "target")
+				end
 				return
 			end
 
 			-- Others
-			local buff, _, _, _, _, _, _, _, _, _, id = UnitBuff("target", i)
+			if (UnitHasImmun("target") or not UnitInRange("target")) then return end
 
-			while (buff) do
-				buffs[#buffs + 1] = buff;
-				ids[#ids + 1] = id;
-
-				i = i + 1;
-				buff, _, _, _, _, _, _, _, _, _, id = UnitBuff("target", i)
-			end
-
-			for i = 1, #buffsList do
-				for j = 1, #buffs do
-					if (buffsList[i] == buffs[j] or buffsList[i] == ids[j]) then return end
-				end
-			end
-
-			if (not LineOfSight("target") and InRange("target"))
+			-- LOS
+			if (not LineOfSight("target"))
 			then
-				local diff = GetTime() - time
+				local diff = GetTime() - lastTimeInLos
+				local delay = 0.2
 
-				if (diff > 0.19 and GetSpellCooldown("Ментальный крик") == 0) then
-					UseFear()
-					--[[print(diff)
-					print(GetDistance("target"))
-					print(GetUnitSpeed("player"))--]]
+				if (diff > delay) then
+					if (GetSpellCooldown("Ментальный крик") == 0) then
+						UseFear()
+
+						-- print("diff - ", diff)
+						-- print("dist - ", GetDistance("target"))
+					end
 				end
 			else
-				time = GetTime()
+				lastTimeInLos = GetTime()
 			end
 
 			return
 		end
 
-		if (GetSpellCooldown("Ментальный крик") == 0) then
+		if (GetSpellCooldown("Ментальный крик") == 0 and not _UnitInControl("player")) then
 			UseFear()
 		end
 	end
-
 end
 
-function PsychicScreamSoloq()
+function PsychicScreamArena()
 
-	local function InRange(unit)
-		if (not UnitExists(unit)) then return false end
-		if (GetUnitSpeed("player") == 0 and GetDistance(unit) < 11) then return true end
-		if (GetUnitSpeed("player") < 4 and GetDistance(unit) < 10) then return true end
-		if (GetUnitSpeed("player") > 4 and GetDistance(unit) < 8.8) then return true end
+	local function UnitHasImmun(unit)
+		local immunBuffs = {
+			1719, --[["Безрассудство"--]]
+			18499, --[["Ярость берсерка"--]]
+			46924, --[["Вихрь клинков"--]]
+			642, --[["Божественный щит"--]]
+			31224, --[["Плащ Теней"--]]
+			19263, --[["Сдерживание"--]]
+			45438, --[["Ледяная глыба"--]]
+			48707, --[["Антимагический панцирь"--]]
+			50334, --[["Берсерк" --]]
+			49039 --[[Перерождение--]]
+		}
+
+		local unitBuffs = _UnitAllBuffIDs(unit)
+
+		for i, v in ipairs(unitBuffs) do
+			if (_ExistsInTable(immunBuffs, v)) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function UnitInRange(unit)
+		local dist, speed = GetDistance(unit), GetUnitSpeed("player")
+		if (speed == 0 and dist < 9.5) then return true end
+		if (speed > 0 and dist < 8.5) then return true end
 		return false
 	end
 
 	local function UseFear()
-		SpellStopCasting()
 		CancelUnitBuff("player", "Слияние с Тьмой")
-		UseInventoryItem(10);
+		SpellStopCasting()
+		UseInventoryItem(10)
+
 		CastSpellByName("Ментальный крик")
 	end
 
-	if ((not UnitExists("arena1") and not UnitExists("arena2") and not UnitExists("arena3")) 
-		or IsShiftKeyDown()) 
-	then 
-		UseFear()
-		return
+	if (_UnitInControl("player") or GetSpellCooldown("Ментальный крик") > 0) then return end
+
+	local units = {}
+
+	if (IsActiveBattlefieldArena()) then
+		units = {"arena1", "arena2", "arena3"}
+	else
+		units = {"target", "focus"}
 	end
 
-	if ((inRange("arena1") and not LineOfSight("arena1")) or 
-		(inRange("arena2") and not LineOfSight("arena2")) or 
-		(inRange("arena3") and not LineOfSight("arena3"))) 
-	then
+	if (IsShiftKeyDown()) then
 		UseFear()
+	else
+		for i = 1, #units do
+			if (UnitExists(units[i]) and UnitIsEnemy("player", units[i])) then
+				if (UnitInRange(units[i]) and not UnitHasImmun(units[i])and not LineOfSight(units[i])) then
+					UseFear()
+					return
+				end
+			end
+		end
 	end
-
 end
 
 function PsychicHorror()
 
-	local buffs = {
-		"Божественный щит",
-		"Длань защиты",
-		"Плащ Теней",
-		"Сдерживание",
-		"Ледяная глыба",
-		"Антимагический панцирь"
-	}
-
-	local silence = {
-		"Безмолвие",
-		"Удушение",
-		"Глушащий выстрел",
-		"Антимагия",
-		"Запрет чар"
-	}
-
-	local function UsePsychicHorror(unit)
-		if (not UnitExists(unit)) then return end
+	function UnitHasImmun(unit)
+		local buffs = {
+			"Божественный щит",
+			"Мастер аур",
+			"Плащ Теней",
+			"Сдерживание",
+			"Ледяная глыба",
+			"Антимагический панцирь"
+		}
 
 		for i = 1, #buffs do
-			if (UnitBuff(unit, buffs[i])) then return end
+			if (UnitBuff(unit, buffs[i])) then
+				return true
+			end
 		end
 
-		for i = 1, #silence do
-			if (UnitDebuff("player", silence[i])) then return end
+		return false
+	end
+
+	local function UsePsychicHorror(unit)
+
+		if (not UnitExists(unit)
+			or UnitHasImmun(unit)
+			or GetSpellCooldown("Глубинный ужас") > 0
+			or GetDistance(unit) > 39
+			or _UnitInControl("player")
+			or LineOfSight(unit)
+		) then
+			return
+		else
+			CancelUnitBuff("player", "Слияние с Тьмой")
+			SpellStopCasting()
 		end
 
-		CancelUnitBuff("player", "Слияние с Тьмой")
-		SpellStopCasting()
-
-		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) 
-		then
-			if (GetUnitSpeed("player") == 0) 
-			then
+		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) then
+			if (GetUnitSpeed("player") == 0) then
 				LookAt(unit)
 				CastSpellByName("Пытка разума", unit)
 			end
-
 			return
 		end
 
@@ -344,274 +558,486 @@ function PsychicHorror()
 	end
 end
 
-function Silence()
+function Silence(mode)
 
-	local buffs = {
-		"Божественный щит",
-		"Мастер аур",
-		"Плащ Теней",
-		"Сдерживание",
-		"Ледяная глыба",
-		"Антимагический панцирь"
-	}
+	mode = _ternary(mode, "arena", "pvp")
 
-	local silence = {
-		"Безмолвие",
-		"Удушение",
-		"Глушащий выстрел",
-		"Антимагия",
-		"Запрет чар"
-	}
-
-	local function UseSilence(unit)
-		if (not UnitExists(unit) or GetSpellCooldown("Безмолвие") > 0) then return end
+	function UnitHasImmun(unit)
+		local buffs = {
+			"Божественный щит",
+			"Мастер аур",
+			"Плащ Теней",
+			"Сдерживание",
+			"Ледяная глыба",
+			"Антимагический панцирь"
+		}
 
 		for i = 1, #buffs do
 			if (UnitBuff(unit, buffs[i])) then
-				return
+				return true
 			end
 		end
 
-		for i = 1, #silence do
-			if (UnitDebuff("player", silence[i])) then 
-				return
-			end
+		return false
+	end
+
+	local function UseSilence(unit)
+
+		if (not UnitExists(unit)
+			or UnitHasImmun(unit)
+			or GetSpellCooldown("Безмолвие") > 0
+			or GetDistance(unit) > 39
+			or _UnitInControl("player")
+			or LineOfSight(unit)
+		) then
+			return false
+		else
+			CancelUnitBuff("player", "Слияние с Тьмой")
+			SpellStopCasting()
 		end
 
-		CancelUnitBuff("player", "Слияние с Тьмой")
-		SpellStopCasting()
-
-		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) 
-		then
-			if (GetUnitSpeed("player") == 0) 
-			then
+		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) then
+			if (GetUnitSpeed("player") == 0) then
 				LookAt(unit)
 				CastSpellByName("Пытка разума", unit)
 			end
-
-			return
+			return false
 		end
-
-		--[[if (not LineOfSight(unit)) then
-			UseInventoryItem(10);
-		end--]]
 
 		if (UnitBuff(unit, "Защита от страха")) then
+			UseInventoryItem(10)
 			CastSpellByName("Рассеивание заклинаний", unit)
 		end
-
+		
 		CastSpellByName("Безмолвие", unit)
+		return true
 	end
 
-	local function UseSilenceShackl()
-		if (not UnitExists("target")) then return end
+	if (IsShiftKeyDown()) then
+		if (mode == "arena") then
+			UseSilence("focus")
+		else
+			if (UnitBuff("target", "Перерождение")) then return end
 
-		if (UnitBuff("target", "Антимагический панцирь")) then 
-			return
+			if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0)
+				and not UnitCastingInfo("player")
+			) then
+				CastSpellByName("Контроль над разумом", "target")
+			end
 		end
-
-		if (GetSpellCooldown("Безмолвие") == 0) then
-			CancelUnitBuff("player", "Слияние с Тьмой")
-		end
-
-		--[[if (not LineOfSight("target")) then
-			UseInventoryItem(10);
-		end--]]
-
-		if (not UnitCastingInfo("player")) then
-			CastSpellByName("Безмолвие", "target")
-			CastSpellByName("Контроль над разумом", "target")
-		end
-	end
-
-
-	--[[if (GetSpellCooldown("Безмолвие") > 0) then
-		return
-	end--]]
-
-	if (IsShiftKeyDown()) 
-	then
-		-- UseSilence("focus")
-		UseSilenceShackl("target")
-	elseif (IsControlKeyDown()) 
-	then
-		UseSilence("focus")
-		-- UseSilenceShackl("target")
 	else
 		UseSilence("target")
 	end
 end
 
-function Silence2()
+function DispelMagic()
 
-	local buffs = {
-		"Божественный щит",
-		"Мастер аур",
-		"Плащ Теней",
-		"Сдерживание",
-		"Ледяная глыба",
-		"Антимагический панцирь"
-	}
+	local function UseDispelMagic(unit)
+		if (UnitDebuff(unit, 1)) then
+			CastSpellByName("Рассеивание заклинаний", unit)
+		end
+	end
 
-	local function UseSilence(unit)
-		if (not UnitExists(unit)) then return end
+	if (IsShiftKeyDown()) then
+		UseDispelMagic("party1")
+	elseif (IsControlKeyDown()) then
+		UseDispelMagic("party2")
+	else
+		UseDispelMagic("player")
+	end
+end
 
-		LookAt(unit)
+function AutoDispelPvP_OnUpdate()
 
-		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) 
-		then
+	local function IsDebuffDispelTime(unit, debuff)
+		local now = GetTime()
 
-			CastSpellByName("Пытка разума", unit)
+		local _, _, _, _, _, duration, expiration = UnitDebuff(unit, debuff)
+		local dispelTime = expiration - (duration - 0.6)
+		local dispelTimeEnd = expiration - 1
+		
+		if (now > dispelTime and now < dispelTimeEnd) then return true end
+		return false
+	end
+
+	local function UseDispelMagic(unit)
+		if (GetSpellCooldown("Рассеивание заклинаний") == 0
+			and not LineOfSight(unit)
+			and not _UnitInControl("player")
+			and not (UnitCastingInfo("player") or UnitChannelInfo("player"))
+			and GetDistance(unit) < 42
+			and UnitMana("player") > 1500
+		) then
+			CastSpellByName("Рассеивание заклинаний", unit)
+		end
+	end
+
+	local units = {"pet"}
+
+	if (IsActiveBattlefieldArena()) then
+		if (UnitExists("party2")) then
+			units = {"party1", "party2", "pet", "partypet1", "partypet2"}
+		elseif (UnitExists("party1")) then
+			units = {"party1", "pet", "partypet1"}
+		end
+	end
+
+	if (UnitDebuff("player", "Кровавая метка")) then
+		if (IsDebuffDispelTime("player", "Кровавая метка")) then
+			UseDispelMagic("player")
+			return
+		end
+	end
+
+	for i = 1, #units do
+		if (UnitExists(units[i]) and UnitDebuff(units[i], 1)) then
+			local control = _UnitInMagicControl(units[i])
+			if (control) then
+				if (IsDebuffDispelTime(units[i], control)) then
+					UseDispelMagic(units[i])
+					return
+				end
+			end
+		end
+	end
+end
+
+function AutoTrinketPvP_OnUpdate()
+
+	if (GetSpellCooldown("Каждый за себя") > 0 
+		or UnitBuff("player", "Слияние с Тьмой")
+	) then
+		return
+	end
+
+	local function IsTrinketTime(debuff)
+		local duration, expiration = select(6, UnitDebuff("player", debuff))
+		local dispelTimeStart = expiration - (duration - 0.5 )
+		local dispelTimeEnd = expiration - 0.5
+
+		local now = GetTime()
+
+		if (now > dispelTimeStart and now < dispelTimeEnd) then
+			return true
+		end
+		return false		
+	end
+
+	if (UnitDebuff("player", "Отгрызть")) then
+		if (not IsTrinketTime("Отгрызть")) then return end
+
+		local unit = IsActiveBattlefieldArena() and "arena1" or "target"
+
+		if (_UnitHealthInPercent("player") < 35) then
+			CastSpellByName("Каждый за себя")
 			return
 		end
 
-		for i = 1, #buffs do
-			if (UnitBuff(unit, buffs[i])) then 
+		if (UnitBuff(unit, "Сила поганища") and GetDistance(unit) < 15) then
+			CastSpellByName("Каждый за себя")
+			return
+		end
+
+		if (not UnitBuff(unit, "Сила поганища") and UnitDebuff("player", "Призыв горгульи")) then
+			CastSpellByName("Каждый за себя")
+			return
+		end
+	end
+
+	if (UnitDebuff("player", "Перехват")) then
+		if (not IsTrinketTime("Перехват")) then return end
+
+		if (_UnitHealthInPercent("player") < 95) then
+			CastSpellByName("Каждый за себя")
+			return
+		end
+	end
+end
+
+function AutoSWDPvP_OnUpdate()
+
+	local units = {"target", "focus"}
+
+	if (IsActiveBattlefieldArena()) then
+		if (UnitExists("arena3")) then
+			units = {"arena1", "arena2", "arena3"--[[, "arenapet1", "arenapet2", "arenapet3"--]]}
+		elseif (UnitExists("arena2")) then
+			units = {"arena1", "arena2"--[[, "arenapet1", "arenapet2"--]]}
+		else
+			units = {"arena1"--[[, "arenapet1"--]]}
+		end
+	end
+
+	local function UseSWD(unit)
+
+		local function SWDReady()
+			local _, cooldownDuration = GetSpellCooldown("Слово Тьмы: Смерть")
+			if (cooldownDuration == 0) then return true end
+			if ((UnitCastingInfo("player") or UnitChannelInfo("player")) and cooldownDuration <= 1.5) then return true end
+			return false
+		end
+
+		local function SWDCanInteract(unit)
+			if (GetDistance(unit) < 38 and not LineOfSight(unit)) then return true end
+			return false
+		end
+
+		if (	SWDReady() 
+			and SWDCanInteract(unit)
+			and _UnitCastingProgress(unit) > 82
+			and	_UnitCastingProgress("player") < 90
+			and not _UnitInControl("player")
+			and not UnitIsDeadOrGhost("player")
+			and UnitIsEnemy("player", unit)
+		) then
+			SpellStopCasting()
+			CastSpellByName("Слово Тьмы: Смерть", unit)
+		end
+	end
+
+	for i = 1, #units do
+		if (UnitCastingInfo(units[i])) then
+			local spell = UnitCastingInfo(units[i])
+
+			if (spell == "Превращение"--[[ or spell == "Соблазн"--]]) then
+				if (GetDistance(units[i]) < 34 and disorientDr < 2) then
+					UseSWD(units[i])
+					return
+				end
+			end
+
+			if (spell == "Сглаз") then
+				if (GetDistance(units[i]) < 35 and disorientDr < 2)	then
+
+					if (UnitBuff("player", "Слово силы: Щит")) then
+						if (not UnitDebuff("player", "Ослабленная душа") and UnitDebuff("player", "Огненный шок")) then
+							CancelUnitBuff("player", "Слово силы: Щит")
+						else
+							return
+						end
+					end
+
+					UseSWD(units[i])
+					return
+				end
+			end
+
+			if (spell == "Страх" or spell == "Вой ужаса") then
+				if (GetDistance(UseSWD(units[i])) < 23 and fearDr < 2 and not UnitBuff("player", "Защита от страха")) then
+
+					if (UnitBuff("player", "Слово силы: Щит")) then
+						if ((UnitDebuff("player", "Порча") or UnitDebuff("player", "Жертвенный огонь"))
+							and not UnitDebuff("player", "Ослабленная душа")) then
+							CancelUnitBuff("player", "Слово силы: Щит")
+						elseif (UnitDebuff("player", "Порча") and UnitDebuff("player", "Жертвенный огонь")) then
+							CancelUnitBuff("player", "Слово силы: Щит")
+						else
+							return
+						end
+					end
+
+					if (spell == "Вой ужаса" and GetDistance(UseSWD(units[i])) > 11) then return end
+
+					UseSWD(units[i])
+					return
+				end
+			end
+
+		end
+	end
+end
+
+function PriestPvE()
+	if (not AutoRotationFrame) then
+		AutoRotationFrame = CreateFrame("Frame", "AutoRotationFrame", UIParent)
+	end
+
+	if (not AutoRotationFrame:GetScript("OnUpdate")) then
+		AutoRotationFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		AutoRotationFrame:SetScript("OnEvent", AutoRotation_OnEvent)
+		AutoRotationFrame:SetScript("OnUpdate", AutoRotation_OnUpdate)
+		print("PvE Enabled")
+	else
+		AutoRotationFrame:SetScript("OnUpdate", nil)
+		AutoRotationFrame:SetScript("OnEvent", nil)
+		AutoRotationFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		print("PvE Disabled")
+	end
+end
+
+function AutoRotation_OnEvent(self, event, _, subevent, _, sourceName, _, _, destName, _, _, spellName)
+	if (sourceName == UnitName("player")) then
+
+		if (spellName == "Прикосновение вампира") then
+			if (subevent == "SPELL_CAST_START") then
+				castingFlag = true
+			end
+			if (subevent == "SPELL_CAST_FAILED" 
+				or subevent == "SPELL_AURA_APPLIED"
+				or subevent == "SPELL_AURA_REFRESH"
+			) then
+				castingFlag = false
+			end
+			return
+		end
+
+		if (spellName == "Слово Тьмы: Боль" 
+			or spellName == "Всепожирающая чума"
+			or spellName == "Слияние с Тьмой"
+			or spellName == "Слово силы: Щит"
+		) then
+			if (subevent == "SPELL_CAST_SUCCESS") then
+				spellUseFlag = true
+			end
+			if (subevent == "SPELL_AURA_APPLIED") then
+				spellUseFlag = false
+			end
+			return
+		end
+
+		if (spellName == "Пытка разума" and destName == UnitName("target")) then
+			if (subevent == "SPELL_CAST_SUCCESS") then
+				castingFlag = true
+				spellUseFlag = true
+			end
+			if (subevent == "SPELL_AURA_APPLIED") then
+				spellUseFlag = false
+			end
+			if (subevent == "SPELL_AURA_REMOVED" or subevent == "SPELL_CAST_FAILED") then
+				castingFlag = false
+			end
+			return
+		end
+
+		if (spellName == "Исчадие Тьмы") then
+			if (subevent == "SPELL_CAST_SUCCESS") then
+				spellUseFlag = true
+			end
+			if (subevent == "SPELL_SUMMON") then
+				spellUseFlag = false
+			end
+			return
+		end
+		
+	end
+end
+
+function AutoRotation_OnUpdate()
+
+	if (GetUnitSpeed("player") > 0) then
+		castingFlag = false
+		return
+	end
+
+	if (not UnitExists("target")
+		or not UnitIsEnemy("player", "target")
+		or UnitName("player") == UnitName("target")
+		or not UnitAffectingCombat("player")
+		or UnitMana("player") < 2000
+		or UnitBuff("player", "Слияние с Тьмой")
+		or UnitCastingInfo("player")
+		or UnitChannelInfo("player")
+		or GetDistance("target") > 39
+		or castingFlag == true
+		or spellUseFlag == true
+	) then
+		return
+	end
+
+
+	local function VampiricTouch()
+		if (_PlayerDotOnUnit("target", "Прикосновение вампира")) then return end
+		if (GetSpellCooldown("Прикосновение вампира") == 0) then
+			CastSpellByName("Прикосновение вампира", "target")
+		end
+	end
+
+	local function ShadowWordPain()
+		if (_PlayerDotOnUnit("target", "Слово Тьмы: Боль")) then return end
+		local _, countShadowWeaving = _PlayerBuffOnUnit("player", "Плетение Тьмы")
+		if (GetSpellCooldown("Слово Тьмы: Боль") == 0 and countShadowWeaving == 5) then
+			CastSpellByName("Слово Тьмы: Боль", "target")
+		end
+	end
+
+	local function DevouringPlague()
+		if (_PlayerDotOnUnit("target", "Всепожирающая чума")) then return end
+		if (_PlayerDotOnUnit("target", "Прикосновение вампира")
+			and _PlayerDotOnUnit("target", "Прикосновение вампира") > 75) then return end
+		if (GetSpellCooldown("Всепожирающая чума") == 0) then
+			CastSpellByName("Всепожирающая чума", "target")
+		end
+	end
+
+	local function Shadowfiend()
+		if (GetSpellCooldown("Исчадие Тьмы") == 0) then
+			if (UnitBuff("player", "Сумеречные огни") and UnitBuff("player", "Почерпнутая сила")) then
+				CastSpellByName("Исчадие Тьмы", "target")
+				return
+			end
+			if ((UnitBuff("player", "Сумеречные огни") or UnitBuff("player", "Почерпнутая сила"))
+				and _UnitManaInPercent("player") < 70) then
+				CastSpellByName("Исчадие Тьмы", "target")
 				return
 			end
 		end
+	end
 
-		CancelUnitBuff("player", "Слияние с Тьмой")
-		SpellStopCasting()
-
-		if (UnitBuff(unit, "Защита от страха")) then
-			CastSpellByName("Рассеивание заклинаний", unit)
+	local function MindFlay()
+		if (GetSpellCooldown("Пытка разума") == 0) then
+			_LookAtTarget()
+			CastSpellByName("Пытка разума", "target")
 		end
-
-		UseInventoryItem(10);
-
-		CastSpellByName("Безмолвие", unit)
 	end
 
-	if (IsShiftKeyDown())
-	then
-		UseSilence("focus")
-	else
-		UseSilence("target")
-	end
-end
-
-function AutoDispel()
-
-	local units = {--[["player", --]]"party1", "party2", "pet"--[[, "partypet1"--]]}
-
-	local debuffs = {
-		"Ментальный крик", "Безмолвие", "Сковывание нежити", "Ненасытная стужа",
-		"Превращение", "Кольцо льда", "Холод", "Дыхание дракона", "Глубокая заморозка",
-		"Молот правосудия", "Покаяние",
-		"Страх", "Соблазн", "Вой ужаса",--[["Запрет чар", --]]
-		"Хватка земли",
-		"Гнев деревьев", 
-		"Удушение", "Кровавая метка", --[["Ледяные оковы",--]]
-		"Глушащий выстрел", "Эффект замораживающей стрелы", "Эффект замораживающей ловушки"
-	}
-	
-	local function AutoDispelHandler()
-
-		if (UnitIsDeadOrGhost("party1") or UnitIsDeadOrGhost("party2")) then return end
-
-		-- Spam five times per second
-		local timeRemains = round(GetTime() % 0.2, 2)
-
-		for i = 1, #units do
-			-- Unit has any debuff
-			if (UnitDebuff(units[i], 1)) then
-
-				for j = 1, #debuffs do
-					if(UnitDebuff(units[i], debuffs[j])) then
-
-						local _, _, _, _, _, duration, expiration = UnitDebuff(units[i], debuffs[j])
-						local dispelTime = expiration - (duration - 0.5)
-						local dispelTimeEnd = expiration - 1.5
-
-						if (GetTime() > dispelTime
-							and GetTime() < dispelTimeEnd
-							and timeRemains == 0
-							and not (UnitCastingInfo("player") or UnitChannelInfo("player"))
-							and GetSpellCooldown("Рассеивание заклинаний") == 0
-							and UnitMana("player") > 2000
-							and UnitInRange(units[i])
-							and not UnitIsEnemy("player", units[i])) 
-						then
-							CastSpellByName("Рассеивание заклинаний", units[i])
-						end
-
-					end
+	local function HyperSpeedAcceleration()
+		_, duration, enable = GetInventoryItemCooldown(10)
+		if (enable) then
+			if (duration == 0) then
+				if (_PlayerBuffOnUnit("player", "Сумеречные огни") 
+					and _PlayerBuffOnUnit("player", "Сумеречные огни") < 25) then
+					UseInventoryItem(10)
+					return
+				end
+				if (_PlayerBuffOnUnit("player", "Почерпнутая сила") 
+					and _PlayerBuffOnUnit("player", "Почерпнутая сила") < 25) then
+					UseInventoryItem(10)
+					return
 				end
 			end
 		end
 	end
 
-	if (not AutoDispelFrame) 
-	then
-		AutoDispelFrame = CreateFrame("Frame", "AutoDispelFrame", UIParent);
-	end
-
-	if (not AutoDispelFrame:GetScript("OnUpdate")) 
-	then
-		AutoDispelFrame:SetScript("OnUpdate", AutoDispelHandler)
-		print("dispel +")
-	else
-		AutoDispelFrame:SetScript("OnUpdate", nil)
-		print("dispel -")
-	end
-end
-
-function AutoSWD()
-
-	local units = {"target", "focus", "arena1", "arena2", "arenapet1", "arenapet2"}
-	local spells = {"Превращение", "Соблазн", "Сглаз"--[[, "Страх"--]]}
-
-	local function AutoSWDHandler()
-
-		if (UnitIsDeadOrGhost("party1") or UnitIsDeadOrGhost("party2")) then return end
-
-		-- Spam ten times per second
-		--[[local timeRemains = round(GetTime() % 0.1, 2)--]]
-
-		for i = 1, #units do
-			if (UnitCastingInfo(units[i]) and UnitIsEnemy("player", units[i])) then
-
-				local spell, _, _, _, startTime, endTime, _, _, interrupt = UnitCastingInfo(units[i])
-
-				for j = 1, #spells do
-					if (spells[j] == spell) then
-
-						local finish = endTime / 1000 - GetTime()
-						local duration = (endTime - startTime) / 1000
-						local percentProgress = 100 - (finish * 100 / duration)
-
-						local _, cooldownDuration = GetSpellCooldown("Слово Тьмы: Смерть")
-
-						if (cooldownDuration < 2 
-							and percentProgress >= 75
-							--[[and timeRemains == 0--]]) 
-						then
-
-							-- SpellStopCasting()
-							CastSpellByName("Слово Тьмы: Смерть", units[i])
-
-						end
-
-					end
-				end
-
+	local function Dispersion()
+		if (GetSpellCooldown("Слияние с Тьмой") == 0) then
+			if ((_UnitHealthInPercent("player") < 35 or _UnitManaInPercent("player") < 35)
+				and not UnitBuff("player", "Сумеречные огни")
+				and not UnitBuff("player", "Почерпнутая сила")
+				and not UnitBuff("player", "Гиперскоростное ускорение")
+			) then
+				CastSpellByName("Слияние с Тьмой")
 			end
-
 		end
 	end
 
-	if (not AutoSWDFrame) 
-	then
-		AutoSWDFrame = CreateFrame("Frame", "AutoSWDFrame", UIParent);
+	local function PowerWordShield()
+		if (GetSpellCooldown("Слово силы: Щит") == 0) then
+			if (_UnitHealthInPercent("player") < 65 
+				and not UnitBuff("player", "Слово силы: Щит") 
+				and not UnitDebuff("player", "Ослабленная душа")
+			) then
+				CastSpellByName("Слово силы: Щит", "player")
+			end
+		end
 	end
 
-	if (not AutoSWDFrame:GetScript("OnUpdate")) 
-	then
-		AutoSWDFrame:SetScript("OnUpdate", AutoSWDHandler)
-		print("swd +")
-	else
-		AutoSWDFrame:SetScript("OnUpdate", nil)
-		print("swd -")
-	end
+
+	Dispersion()
+	PowerWordShield()
+	HyperSpeedAcceleration()
+	VampiricTouch()
+	ShadowWordPain()
+	DevouringPlague()
+	Shadowfiend()
+	MindFlay()
 end
