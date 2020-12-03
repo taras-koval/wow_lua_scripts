@@ -71,7 +71,7 @@ local roots = {
 
 function _test()
 
-	print(GetDistance("target"))
+	
 
 end
 
