@@ -1,19 +1,21 @@
-local lastTimeInLos = 0
+isPriestPvPEnabled = false
+isPriestArenaEnabled = false
+isPriestPvEEnabled = false
 
-local drResetDelay = 15
+lastTimeInLos = 0
 
-local lastFearTime = 0
-local fearDr = 0
+drResetDelay = 15
+lastFearTime = 0
+fearDr = 0
+lastDisorientTime = 0
+disorientDr = 0
 
-local lastDisorientTime = 0
-local disorientDr = 0
+lastScreamTime = 0
+lastScatterTime = 0
+lastRepentanceTime = 0
 
-local lastScreamTime = 0
-local lastScatterTime = 0
-local lastRepentanceTime = 0
-
-local castingFlag = false
-local spellUseFlag = false
+castingFlag = false
+spellUseFlag = false
 
 
 if (not DiminishingReturnsFrame) then
@@ -40,70 +42,92 @@ if (not InstantSpellsFrame) then
 	InstantSpellsFrame = CreateFrame("Frame", "InstantSpellsFrame", UIParent)
 end
 
+if (not AutoRotationFrame) then
+	AutoRotationFrame = CreateFrame("Frame", "AutoRotationFrame", UIParent)
+end
+
 
 function PriestPvP()
+	if (not isPriestPvPEnabled) then
+		PriestArenaDisabled()
+		PriestPvEDisabled()
 
-	if (not DiminishingReturnsFrame:GetScript("OnUpdate")) then
-
-		-- Diminishing Returns
-		DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
-		DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
-
-		CheckLosFrame:SetScript("OnUpdate", CheckLos_OnUpdate)
-		AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
-		AutoTrinketPvPFrame:SetScript("OnUpdate", AutoTrinketPvP_OnUpdate)
-		AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
-
-		InstantSpellsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		InstantSpellsFrame:SetScript("OnEvent", InstantSpells_OnEvent)
-		-- InstantSpellsFrame:SetScript("OnUpdate", InstantSpells_OnUpdate)
-
+		PriestPvPEnabled()
+		isPriestPvPEnabled = true
+		isPriestArenaEnabled = false
+		isPriestPvEEnabled = false
 		print("PvP Enabled")
 	else
-		AutoDispelPvPFrame:SetScript("OnUpdate", nil)
-		CheckLosFrame:SetScript("OnUpdate", nil)
-		AutoTrinketPvPFrame:SetScript("OnUpdate", nil)
-		AutoSWDPvPFrame:SetScript("OnUpdate", nil)
-
-		-- Diminishing Returns
-		DiminishingReturnsFrame:SetScript("OnUpdate", nil)
-		DiminishingReturnsFrame:SetScript("OnEvent", nil)
-		DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-
-		-- InstantSpellsFrame:SetScript("OnUpdate", nil)
-		InstantSpellsFrame:SetScript("OnEvent", nil)
-		InstantSpellsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-
+		PriestPvPDisabled()
+		isPriestPvPEnabled = false
 		print("PvP Disabled")
 	end
 end
 
+function PriestPvPEnabled()
+	DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
+	DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
+
+	CheckLosFrame:SetScript("OnUpdate", CheckLos_OnUpdate)
+	AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
+	AutoTrinketPvPFrame:SetScript("OnUpdate", AutoTrinketPvP_OnUpdate)
+	AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
+
+	InstantSpellsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	InstantSpellsFrame:SetScript("OnEvent", InstantSpells_OnEvent)
+	InstantSpellsFrame:SetScript("OnUpdate", InstantSpells_OnUpdate)
+end
+
+function PriestPvPDisabled()
+	DiminishingReturnsFrame:SetScript("OnUpdate", nil)
+	DiminishingReturnsFrame:SetScript("OnEvent", nil)
+	DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
+	AutoDispelPvPFrame:SetScript("OnUpdate", nil)
+	CheckLosFrame:SetScript("OnUpdate", nil)
+	AutoTrinketPvPFrame:SetScript("OnUpdate", nil)
+	AutoSWDPvPFrame:SetScript("OnUpdate", nil)
+
+	InstantSpellsFrame:SetScript("OnUpdate", nil)
+	InstantSpellsFrame:SetScript("OnEvent", nil)
+	InstantSpellsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+end
+
 function PriestArena()
 
-	if (not DiminishingReturnsFrame:GetScript("OnUpdate")) then
+	if (not isPriestArenaEnabled) then
+		PriestPvPDisabled()
+		PriestPvEDisabled()
 
-		-- Diminishing Returns
-		DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
-		DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
-
-		AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
-		AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
-
+		PriestArenaEnabled()
+		isPriestPvPEnabled = false
+		isPriestArenaEnabled = true
+		isPriestPvEEnabled = false
 		print("Arena Enabled")
 	else
-
-		-- Diminishing Returns
-		DiminishingReturnsFrame:SetScript("OnUpdate", nil)
-		DiminishingReturnsFrame:SetScript("OnEvent", nil)
-		DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-
-		AutoSWDPvPFrame:SetScript("OnUpdate", nil)
-		AutoDispelPvPFrame:SetScript("OnUpdate", nil)
-
+		PriestArenaDisabled()
+		isPriestArenaEnabled = false
 		print("Arena Disabled")
 	end
+end
+
+function PriestArenaEnabled()
+	DiminishingReturnsFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	DiminishingReturnsFrame:SetScript("OnEvent", DiminishingReturns_OnEvent)
+	DiminishingReturnsFrame:SetScript("OnUpdate", DiminishingReturns_OnUpdate)
+
+	AutoSWDPvPFrame:SetScript("OnUpdate", AutoSWDPvP_OnUpdate)
+	AutoDispelPvPFrame:SetScript("OnUpdate", AutoDispelPvP_OnUpdate)
+end
+
+function PriestArenaDisabled()
+	DiminishingReturnsFrame:SetScript("OnUpdate", nil)
+	DiminishingReturnsFrame:SetScript("OnEvent", nil)
+	DiminishingReturnsFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
+	AutoSWDPvPFrame:SetScript("OnUpdate", nil)
+	AutoDispelPvPFrame:SetScript("OnUpdate", nil)
 end
 
 
@@ -166,7 +190,7 @@ function InstantSpells_OnEvent(self, event, _, subevent, _, sourceName, _, _, de
 		if (UnitIsDeadOrGhost("player")) then return end
 
 		local function IsHotKeyDown()
-			if (IsModifierKeyDown() or IsMouseButtonDown("RightButton")) then return true end
+			if (IsModifierKeyDown()--[[ or IsMouseButtonDown("RightButton")--]]) then return true end
 			return false
 		end
 
@@ -336,10 +360,10 @@ function PsychicScreamPvP()
 
 		local playerSpeed = GetUnitSpeed("player")
 		local unitSpeed = GetUnitSpeed(unit)
-		local isUnitFacing = ObjectIsFacing(unit)
 		local distance = GetDistance(unit)
+		local isUnitFacing = ObjectIsFacing(unit)
 
-		if (playerSpeed == 0 and unitSpeed == 0 and distance < 9.5) then return true end
+		--[[if (playerSpeed == 0 and unitSpeed == 0 and distance < 9.5) then return true end
 
 		if (playerSpeed == 0 and unitSpeed > 0 and distance < 6.8 and isUnitFacing == true) then return true end
 		if (playerSpeed > 0 and unitSpeed > 0 and distance < 5.3 and isUnitFacing == true) then return true end
@@ -347,7 +371,12 @@ function PsychicScreamPvP()
 
 		if (playerSpeed == 0 and unitSpeed > 0 and distance < 9.4 and isUnitFacing == false) then return true end
 		if (playerSpeed > 0 and unitSpeed > 0 and distance < 8.7 and isUnitFacing == false) then return true end
-		if (playerSpeed > 0 and unitSpeed == 0 and distance < 6.8 and isUnitFacing == false) then return true end
+		if (playerSpeed > 0 and unitSpeed == 0 and distance < 6.8 and isUnitFacing == false) then return true end--]]
+
+		if (playerSpeed == 0 and unitSpeed == 0 and distance < 11) then return true end
+		if ((playerSpeed >= 0 or unitSpeed >= 0) and distance < 9.5) then return true end
+		if ((playerSpeed >= 0 or unitSpeed >= 0) and distance < 10.5 and isUnitFacing == false) then return true end
+		if (playerSpeed < 4 and distance < 10) then return true end
 
 		return false
 	end
@@ -363,8 +392,7 @@ function PsychicScreamPvP()
 	end
 
 
-	if (_UnitInControl("player")) then return end
-
+	if (GetSpellCooldown("Ментальный крик") > 0 or _UnitInControl("player")) then return end
 	
 	if (IsShiftKeyDown()) --[[SHIFT--]]
 	then
@@ -414,16 +442,23 @@ function PsychicScreamPvP()
 			-- LOS
 			if (not LineOfSight("target"))
 			then
+				local playerSpeed = GetUnitSpeed("player")
+				local targetSpeed = GetUnitSpeed("target")
+				local distance = (GetDistance("target"))
+
 				local diff = GetTime() - lastTimeInLos
 				local delay = 0.2
 
-				if (diff > delay) then
-					if (GetSpellCooldown("Ментальный крик") == 0) then
-						UseFear()
+				if (targetSpeed == 0 and distance < 2.5) then 
+					delay = 0.095
+				end
 
-						-- print("diff - ", diff)
-						-- print("dist - ", GetDistance("target"))
-					end
+				if (diff > delay) then
+
+					UseFear()
+
+					--[[print("diff - ", diff)
+					print("dist - ", GetDistance("target"))--]]
 				end
 			else
 				lastTimeInLos = GetTime()
@@ -432,9 +467,7 @@ function PsychicScreamPvP()
 			return
 		end
 
-		if (GetSpellCooldown("Ментальный крик") == 0 and not _UnitInControl("player")) then
-			UseFear()
-		end
+		UseFear()
 	end
 end
 
@@ -465,9 +498,17 @@ function PsychicScreamArena()
 	end
 
 	local function UnitInRange(unit)
-		local dist, speed = GetDistance(unit), GetUnitSpeed("player")
-		if (speed == 0 and dist < 9.5) then return true end
-		if (speed > 0 and dist < 8.5) then return true end
+
+		local playerSpeed = GetUnitSpeed("player")
+		local unitSpeed = GetUnitSpeed(unit)
+		local distance = GetDistance(unit)
+		local isUnitFacing = ObjectIsFacing(unit)
+
+		if (playerSpeed == 0 and unitSpeed == 0 and distance < 11) then return true end
+		if ((playerSpeed >= 0 or unitSpeed >= 0) and distance < 9.5) then return true end
+		if ((playerSpeed >= 0 or unitSpeed >= 0) and distance < 10.5 and isUnitFacing == false) then return true end
+		if (playerSpeed < 4 and distance < 10) then return true end
+
 		return false
 	end
 
@@ -619,9 +660,7 @@ function Silence(mode)
 		else
 			if (UnitBuff("target", "Перерождение")) then return end
 
-			if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0)
-				and not UnitCastingInfo("player")
-			) then
+			if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0) and not UnitCastingInfo("player")) then
 				CastSpellByName("Контроль над разумом", "target")
 			end
 		end
@@ -667,6 +706,7 @@ function AutoDispelPvP_OnUpdate()
 			and not (UnitCastingInfo("player") or UnitChannelInfo("player"))
 			and GetDistance(unit) < 42
 			and UnitMana("player") > 1500
+			and not UnitBuff("player", "Слияние с Тьмой")
 		) then
 			CastSpellByName("Рассеивание заклинаний", unit)
 		end
@@ -676,9 +716,9 @@ function AutoDispelPvP_OnUpdate()
 
 	if (IsActiveBattlefieldArena()) then
 		if (UnitExists("party2")) then
-			units = {"party1", "party2", "pet", "partypet1", "partypet2"}
+			units = {"party1", "party2", "pet"--[[, "partypet1", "partypet2"--]]}
 		elseif (UnitExists("party1")) then
-			units = {"party1", "pet", "partypet1"}
+			units = {"party1", "pet"--[[, "partypet1"--]]}
 		end
 	end
 
@@ -762,9 +802,9 @@ function AutoSWDPvP_OnUpdate()
 		if (UnitExists("arena3")) then
 			units = {"arena1", "arena2", "arena3"--[[, "arenapet1", "arenapet2", "arenapet3"--]]}
 		elseif (UnitExists("arena2")) then
-			units = {"arena1", "arena2"--[[, "arenapet1", "arenapet2"--]]}
+			units = {"arena1", "arena2", "arenapet1", "arenapet2"}
 		else
-			units = {"arena1"--[[, "arenapet1"--]]}
+			units = {"arena1", "arenapet1"}
 		end
 	end
 
@@ -784,11 +824,11 @@ function AutoSWDPvP_OnUpdate()
 
 		if (	SWDReady() 
 			and SWDCanInteract(unit)
-			and _UnitCastingProgress(unit) > 82
 			and	_UnitCastingProgress("player") < 90
 			and not _UnitInControl("player")
 			and not UnitIsDeadOrGhost("player")
 			and UnitIsEnemy("player", unit)
+			and not UnitBuff("player", "Слияние с Тьмой")
 		) then
 			SpellStopCasting()
 			CastSpellByName("Слово Тьмы: Смерть", unit)
@@ -799,15 +839,24 @@ function AutoSWDPvP_OnUpdate()
 		if (UnitCastingInfo(units[i])) then
 			local spell = UnitCastingInfo(units[i])
 
-			if (spell == "Превращение"--[[ or spell == "Соблазн"--]]) then
-				if (GetDistance(units[i]) < 34 and disorientDr < 2) then
+			if (spell == "Превращение") then
+				if (GetDistance(units[i]) < 34 and disorientDr < 2 and _UnitCastingProgress(units[i]) > 85) then
 					UseSWD(units[i])
 					return
 				end
 			end
 
+			if (spell == "Соблазн") then
+				if (_IsUnitTargetingPlayer(units[i])) then
+					if (GetDistance(units[i]) < 34 and fearDr < 1 and _UnitCastingProgress(units[i]) > 60) then
+						UseSWD(units[i])
+						return
+					end
+				end
+			end
+
 			if (spell == "Сглаз") then
-				if (GetDistance(units[i]) < 35 and disorientDr < 2)	then
+				if (GetDistance(units[i]) < 35 and disorientDr < 1 and _UnitCastingProgress(units[i]) > 85)	then
 
 					if (UnitBuff("player", "Слово силы: Щит")) then
 						if (not UnitDebuff("player", "Ослабленная душа") and UnitDebuff("player", "Огненный шок")) then
@@ -817,13 +866,16 @@ function AutoSWDPvP_OnUpdate()
 						end
 					end
 
-					UseSWD(units[i])
-					return
+					if (UnitDebuff("player", "Огненный шок") or UnitDebuff("player", "Порча") or UnitDebuff("player", "Жертвенный огонь")) then
+						-- CancelUnitBuff("player", "Облик тьмы")
+						UseSWD(units[i])
+						return
+					end
 				end
 			end
 
 			if (spell == "Страх" or spell == "Вой ужаса") then
-				if (GetDistance(UseSWD(units[i])) < 23 and fearDr < 2 and not UnitBuff("player", "Защита от страха")) then
+				if (GetDistance(units[i]) < 23 and fearDr < 2 and not UnitBuff("player", "Защита от страха") and _UnitCastingProgress(units[i]) > 85) then
 
 					if (UnitBuff("player", "Слово силы: Щит")) then
 						if ((UnitDebuff("player", "Порча") or UnitDebuff("player", "Жертвенный огонь"))
@@ -838,8 +890,15 @@ function AutoSWDPvP_OnUpdate()
 
 					if (spell == "Вой ужаса" and GetDistance(UseSWD(units[i])) > 11) then return end
 
-					UseSWD(units[i])
-					return
+					if (UnitDebuff("player", "Огненный шок") or UnitDebuff("player", "Порча") or UnitDebuff("player", "Жертвенный огонь")) then
+
+						--[[if (fearDr < 1) then
+							CancelUnitBuff("player", "Облик тьмы")
+						end--]]
+
+						UseSWD(units[i])
+						return
+					end
 				end
 			end
 
@@ -848,21 +907,32 @@ function AutoSWDPvP_OnUpdate()
 end
 
 function PriestPvE()
-	if (not AutoRotationFrame) then
-		AutoRotationFrame = CreateFrame("Frame", "AutoRotationFrame", UIParent)
-	end
+	if (not isPriestPvEEnabled) then
+		PriestPvPDisabled()
+		PriestArenaDisabled()
 
-	if (not AutoRotationFrame:GetScript("OnUpdate")) then
-		AutoRotationFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		AutoRotationFrame:SetScript("OnEvent", AutoRotation_OnEvent)
-		AutoRotationFrame:SetScript("OnUpdate", AutoRotation_OnUpdate)
+		PriestPvEEnabled()
+		isPriestPvPEnabled = false
+		isPriestArenaEnabled = false
+		isPriestPvEEnabled = true
 		print("PvE Enabled")
 	else
-		AutoRotationFrame:SetScript("OnUpdate", nil)
-		AutoRotationFrame:SetScript("OnEvent", nil)
-		AutoRotationFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		PriestPvEDisabled()
+		isPriestPvEEnabled = false
 		print("PvE Disabled")
 	end
+end
+
+function PriestPvEEnabled()
+	AutoRotationFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	AutoRotationFrame:SetScript("OnEvent", AutoRotation_OnEvent)
+	AutoRotationFrame:SetScript("OnUpdate", AutoRotation_OnUpdate)
+end
+
+function PriestPvEDisabled()
+	AutoRotationFrame:SetScript("OnUpdate", nil)
+	AutoRotationFrame:SetScript("OnEvent", nil)
+	AutoRotationFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 function AutoRotation_OnEvent(self, event, _, subevent, _, sourceName, _, _, destName, _, _, spellName)
