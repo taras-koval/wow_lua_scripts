@@ -599,11 +599,9 @@ function PsychicHorror()
 	end
 end
 
-function Silence(mode)
+function Silence()
 
-	mode = _ternary(mode, "arena", "pvp")
-
-	function UnitHasImmun(unit)
+	local function UnitHasImmun(unit)
 		local buffs = {
 			"Божественный щит",
 			"Мастер аур",
@@ -622,52 +620,54 @@ function Silence(mode)
 		return false
 	end
 
-	local function UseSilence(unit)
+	local function HyperSpeedAcceleration()
+		local _, duration, enable = GetInventoryItemCooldown(10)
+		if (duration == 0 and enable) then
+			UseInventoryItem(10)
+		end
+	end
 
-		if (not UnitExists(unit)
-			or UnitHasImmun(unit)
-			or GetSpellCooldown("Безмолвие") > 0
-			or GetDistance(unit) > 39
-			or _UnitInControl("player")
-			or LineOfSight(unit)
+	if (not UnitExists("target")
+		or UnitHasImmun("target")
+		or GetDistance("target") > 39
+		or _UnitInControl("player")
+		or LineOfSight("target")
+	) then
+		return
+	end
+
+	if (UnitBuff("target", "Отражение заклинания") or UnitBuff("target", "Эффект тотема заземления")) then
+		if (GetUnitSpeed("player") == 0) then
+			LookAt("target")
+			CastSpellByName("Пытка разума", "target")
+		end
+		return
+	end
+
+	if (IsShiftKeyDown()) then
+		if (not UnitCastingInfo("player") == "Контроль над разумом"
+			and GetSpellCooldown("Безмолвие") == 0
+			and GetSpellCooldown("Контроль над разумом") == 0
 		) then
-			return false
-		else
 			CancelUnitBuff("player", "Слияние с Тьмой")
 			SpellStopCasting()
 		end
 
-		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) then
-			if (GetUnitSpeed("player") == 0) then
-				LookAt(unit)
-				CastSpellByName("Пытка разума", unit)
-			end
-			return false
-		end
-
-		if (UnitBuff(unit, "Защита от страха")) then
-			UseInventoryItem(10)
-			CastSpellByName("Рассеивание заклинаний", unit)
-		end
-		
-		CastSpellByName("Безмолвие", unit)
-		return true
-	end
-
-	if (IsShiftKeyDown()) then
-		if (mode == "arena") then
-			UseSilence("focus")
-		else
-			if (UnitBuff("target", "Перерождение")) then return end
-
-			if (GetSpellCooldown("Контроль над разумом") == 0) then
-				if ((UseSilence("target") == true or GetSpellCooldown("Безмолвие") > 0) and not UnitCastingInfo("player")) then
-					CastSpellByName("Контроль над разумом", "target")
-				end
-			end
+		if (GetSpellCooldown("Контроль над разумом") == 0) then
+			CastSpellByName("Безмолвие", "target")
+			CastSpellByName("Контроль над разумом", "target")
 		end
 	else
-		UseSilence("target")
+		if (GetSpellCooldown("Безмолвие") == 0) then
+			CancelUnitBuff("player", "Слияние с Тьмой")
+			SpellStopCasting()
+			CastSpellByName("Безмолвие", "target")
+		end
+
+		if (UnitBuff("target", "Защита от страха")) then
+			HyperSpeedAcceleration()
+			CastSpellByName("Рассеивание заклинаний", "target")
+		end
 	end
 end
 
