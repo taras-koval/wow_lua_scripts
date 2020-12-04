@@ -666,7 +666,59 @@ function Silence(mode)
 				end
 			end
 		end
+	else
+		UseSilence("target")
+	end
+end
 
+function SilenceArena()
+
+	function UnitHasImmun(unit)
+		local buffs = {
+			"Божественный щит",
+			"Мастер аур",
+			"Плащ Теней",
+			"Сдерживание",
+			"Ледяная глыба",
+			"Антимагический панцирь"
+		}
+
+		for i = 1, #buffs do
+			if (UnitBuff(unit, buffs[i])) then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	local function UseSilence(unit)
+
+		if (not UnitExists(unit)
+			or UnitHasImmun(unit)
+			or GetSpellCooldown("Безмолвие") > 0
+			or GetDistance(unit) > 39
+			or _UnitInControl("player")
+		) then
+			return
+		else
+			CancelUnitBuff("player", "Слияние с Тьмой")
+			SpellStopCasting()
+		end
+
+		if (UnitBuff(unit, "Отражение заклинания") or UnitBuff(unit, "Эффект тотема заземления")) then
+			if (GetUnitSpeed("player") == 0) then
+				LookAt(unit)
+				CastSpellByName("Пытка разума", unit)
+			end
+			return
+		end
+		
+		CastSpellByName("Безмолвие", unit)
+	end
+
+	if (IsShiftKeyDown()) then
+		UseSilence("focus")
 	else
 		UseSilence("target")
 	end
